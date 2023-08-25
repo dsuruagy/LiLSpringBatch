@@ -30,7 +30,9 @@ public class LinkedinBatchApplication {
 	public Step packageItemStep() {
 		return this.stepBuilderFactory.get("packageItemStep").tasklet(
 				(stepContribution, chunkContext) -> {
-				System.out.println("The item has been packaged.");
+					String item = chunkContext.getStepContext().getJobParameters().get("item").toString();
+					String date = chunkContext.getStepContext().getJobParameters().get("run.date").toString();
+				System.out.println(String.format("The %s has been packaged on %s.", item, date));
 				return RepeatStatus.FINISHED;
 			}).build();
 	}
