@@ -23,7 +23,29 @@ public class LinkedinBatchApplication {
 
 	@Bean
 	public Job deliverPackageJob() {
-		return this.jobBuilderFactory.get("deliverPackageJob").start(packageItemStep()).build();
+		return this.jobBuilderFactory.get("deliverPackageJob")
+				.start(packageItemStep())
+				.next(driveToAddressStep())
+				.next(givePackageToCustomerStep())
+				.build();
+	}
+
+	@Bean
+	public Step driveToAddressStep() {
+		return this.stepBuilderFactory.get("driveToAddressStep").tasklet(
+			(stepContribution, chunkContext) -> {
+				System.out.println("Successfully arrived at the address.");
+				return RepeatStatus.FINISHED;
+			}).build();
+	}
+
+	@Bean
+	public Step givePackageToCustomerStep() {
+		return this.stepBuilderFactory.get("givePackageToCustomerStep").tasklet(
+				(stepContribution, chunkContext) -> {
+					System.out.println("Given the package to the customer.");
+					return RepeatStatus.FINISHED;
+				}).build();
 	}
 
 	@Bean
