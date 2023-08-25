@@ -32,7 +32,7 @@ public class LinkedinBatchApplication {
 				(stepContribution, chunkContext) -> {
 					String item = chunkContext.getStepContext().getJobParameters().get("item").toString();
 					String date = chunkContext.getStepContext().getJobParameters().get("run.date").toString();
-				System.out.println(String.format("The %s has been packaged on %s.", item, date));
+				System.out.printf("The %s has been packaged on %s.%n", item, date);
 				return RepeatStatus.FINISHED;
 			}).build();
 	}
