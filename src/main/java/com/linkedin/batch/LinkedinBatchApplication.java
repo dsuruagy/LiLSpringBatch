@@ -1,5 +1,10 @@
 package com.linkedin.batch;
 
+import com.linkedin.batch.decider.DeliveryDecider;
+import com.linkedin.batch.decider.itemCorrectDecider;
+import com.linkedin.batch.listener.FlowersSelectionStepExecutionListener;
+import com.linkedin.batch.steps.DeliverySteps;
+import com.linkedin.batch.steps.FlowerSteps;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -33,94 +38,45 @@ public class LinkedinBatchApplication {
 	}
 
 	@Bean
+	public DeliverySteps deliverySteps() {
+		return new DeliverySteps();
+	}
+
+	@Bean
+	public FlowerSteps flowerSteps() {
+		return new FlowerSteps();
+	}
+
+	@Bean
 	public Job deliverPackageJob() {
 		return this.jobBuilderFactory.get("deliverPackageJob")
-				.start(packageItemStep())
-				.next(driveToAddressStep())
+				.start(deliverySteps().packageItemStep())
+				.next(deliverySteps().driveToAddressStep())
 					.on("FAILED")
 						// Ao parar ou falhar a execucao, eh possivel retomar a mesma Job Instance
 						// apos a correcao da falha
 						//.stop()
 						.fail()
-				.from(driveToAddressStep())
+				.from(deliverySteps().driveToAddressStep())
 					.on("*").to(decider())
-						.on("PRESENT").to(givePackageToCustomerStep())
-							.next(correctDecider()).on("CORRECT").to(thankCustomerStep())
-							.from(correctDecider()).on("INCORRECT").to(giveRefundStep())
+						.on("PRESENT").to(deliverySteps().givePackageToCustomerStep())
+							.next(correctDecider()).on("CORRECT").to(deliverySteps().thankCustomerStep())
+							.from(correctDecider()).on("INCORRECT").to(deliverySteps().giveRefundStep())
 					.from(decider())
-						.on("NOT_PRESENT").to(leaveAtDoorStep())
+						.on("NOT_PRESENT").to(deliverySteps().leaveAtDoorStep())
 				.end()
 				.build();
 	}
 
 	@Bean
-	public Step driveToAddressStep() {
-		boolean GOT_LOST = true;
-		return this.stepBuilderFactory.get("driveToAddressStep").tasklet(
-			(stepContribution, chunkContext) -> {
-				if(GOT_LOST) {
-					throw new RuntimeException("Got lost driving to address");
-				}
-
-				System.out.println("Successfully arrived at the address.");
-				return RepeatStatus.FINISHED;
-			}).build();
-	}
-
-	@Bean
-	public Step storePackageStep() {
-		return this.stepBuilderFactory.get("storePackageStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					System.out.println("Storing the package while the customer address is located.");
-					return RepeatStatus.FINISHED;
-				}).build();
-	}
-
-	@Bean
-	public Step leaveAtDoorStep() {
-		return this.stepBuilderFactory.get("leaveAtDoorStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					System.out.println("Leaving the package at the door.");
-					return RepeatStatus.FINISHED;
-				}).build();
-	}
-
-	@Bean
-	public Step givePackageToCustomerStep() {
-		return this.stepBuilderFactory.get("givePackageToCustomerStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					System.out.println("Given the package to the customer.");
-					return RepeatStatus.FINISHED;
-				}).build();
-	}
-
-	@Bean
-	public Step thankCustomerStep() {
-		return this.stepBuilderFactory.get("thankCustomerStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					System.out.println("Thank you customer!");
-					return RepeatStatus.FINISHED;
-				}).build();
-	}
-
-	@Bean
-	public Step giveRefundStep() {
-		return this.stepBuilderFactory.get("giveRefundStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					System.out.println("Please forgive us... Here is your refund.");
-					return RepeatStatus.FINISHED;
-				}).build();
-	}
-
-	@Bean
-	public Step packageItemStep() {
-		return this.stepBuilderFactory.get("packageItemStep").tasklet(
-				(stepContribution, chunkContext) -> {
-					String item = chunkContext.getStepContext().getJobParameters().get("item").toString();
-					String date = chunkContext.getStepContext().getJobParameters().get("run.date").toString();
-				System.out.printf("The %s has been packaged on %s.%n", item, date);
-				return RepeatStatus.FINISHED;
-			}).build();
+	public Job prepareFlowers() {
+		return this.jobBuilderFactory.get("prepareFlowersJob")
+				.start(flowerSteps().selectFlowersStep())
+					.on("TRIM_REQUIRED").to(flowerSteps().removeThornsStep())
+				.from(flowerSteps().selectFlowersStep())
+					.on("NO_TRIM_REQUIRED").to(flowerSteps().arrangeFlowersStep())
+				.end()
+				.build();
 	}
 
 	public static void main(String[] args) {

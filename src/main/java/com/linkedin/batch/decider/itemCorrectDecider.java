@@ -1,4 +1,4 @@
-package com.linkedin.batch;
+package com.linkedin.batch.decider;
 
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.StepExecution;
