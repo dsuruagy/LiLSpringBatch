@@ -26,17 +26,34 @@ public class LinkedinBatchApplication {
 		return this.jobBuilderFactory.get("deliverPackageJob")
 				.start(packageItemStep())
 				.next(driveToAddressStep())
-				.next(givePackageToCustomerStep())
+					.on("FAILED").to(storePackageStep())
+				.from(driveToAddressStep())
+					.on("*").to(givePackageToCustomerStep())
+				.end()
 				.build();
 	}
 
 	@Bean
 	public Step driveToAddressStep() {
+		boolean GOT_LOST = true;
 		return this.stepBuilderFactory.get("driveToAddressStep").tasklet(
 			(stepContribution, chunkContext) -> {
+				if(GOT_LOST) {
+					throw new RuntimeException("Got lost driving to address");
+				}
+
 				System.out.println("Successfully arrived at the address.");
 				return RepeatStatus.FINISHED;
 			}).build();
+	}
+
+	@Bean
+	public Step storePackageStep() {
+		return this.stepBuilderFactory.get("storePackageStep").tasklet(
+				(stepContribution, chunkContext) -> {
+					System.out.println("Storing the package while the customer address is located.");
+					return RepeatStatus.FINISHED;
+				}).build();
 	}
 
 	@Bean
