@@ -28,6 +28,11 @@ public class LinkedinBatchApplication {
 	}
 
 	@Bean
+	public JobExecutionDecider correctDecider() {
+		return new itemCorrectDecider();
+	}
+
+	@Bean
 	public Job deliverPackageJob() {
 		return this.jobBuilderFactory.get("deliverPackageJob")
 				.start(packageItemStep())
@@ -36,6 +41,8 @@ public class LinkedinBatchApplication {
 				.from(driveToAddressStep())
 					.on("*").to(decider())
 						.on("PRESENT").to(givePackageToCustomerStep())
+							.next(correctDecider()).on("CORRECT").to(thankCustomerStep())
+							.from(correctDecider()).on("INCORRECT").to(giveRefundStep())
 					.from(decider())
 						.on("NOT_PRESENT").to(leaveAtDoorStep())
 				.end()
@@ -79,6 +86,24 @@ public class LinkedinBatchApplication {
 		return this.stepBuilderFactory.get("givePackageToCustomerStep").tasklet(
 				(stepContribution, chunkContext) -> {
 					System.out.println("Given the package to the customer.");
+					return RepeatStatus.FINISHED;
+				}).build();
+	}
+
+	@Bean
+	public Step thankCustomerStep() {
+		return this.stepBuilderFactory.get("thankCustomerStep").tasklet(
+				(stepContribution, chunkContext) -> {
+					System.out.println("Thank you customer!");
+					return RepeatStatus.FINISHED;
+				}).build();
+	}
+
+	@Bean
+	public Step giveRefundStep() {
+		return this.stepBuilderFactory.get("giveRefundStep").tasklet(
+				(stepContribution, chunkContext) -> {
+					System.out.println("Please forgive us... Here is your refund.");
 					return RepeatStatus.FINISHED;
 				}).build();
 	}
