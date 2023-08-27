@@ -5,6 +5,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -22,20 +23,28 @@ public class LinkedinBatchApplication {
 	public StepBuilderFactory stepBuilderFactory;
 
 	@Bean
+	public JobExecutionDecider decider() {
+		return new DeliveryDecider();
+	}
+
+	@Bean
 	public Job deliverPackageJob() {
 		return this.jobBuilderFactory.get("deliverPackageJob")
 				.start(packageItemStep())
 				.next(driveToAddressStep())
 					.on("FAILED").to(storePackageStep())
 				.from(driveToAddressStep())
-					.on("*").to(givePackageToCustomerStep())
+					.on("*").to(decider())
+						.on("PRESENT").to(givePackageToCustomerStep())
+					.from(decider())
+						.on("NOT_PRESENT").to(leaveAtDoorStep())
 				.end()
 				.build();
 	}
 
 	@Bean
 	public Step driveToAddressStep() {
-		boolean GOT_LOST = true;
+		boolean GOT_LOST = false;
 		return this.stepBuilderFactory.get("driveToAddressStep").tasklet(
 			(stepContribution, chunkContext) -> {
 				if(GOT_LOST) {
@@ -52,6 +61,15 @@ public class LinkedinBatchApplication {
 		return this.stepBuilderFactory.get("storePackageStep").tasklet(
 				(stepContribution, chunkContext) -> {
 					System.out.println("Storing the package while the customer address is located.");
+					return RepeatStatus.FINISHED;
+				}).build();
+	}
+
+	@Bean
+	public Step leaveAtDoorStep() {
+		return this.stepBuilderFactory.get("leaveAtDoorStep").tasklet(
+				(stepContribution, chunkContext) -> {
+					System.out.println("Leaving the package at the door.");
 					return RepeatStatus.FINISHED;
 				}).build();
 	}
