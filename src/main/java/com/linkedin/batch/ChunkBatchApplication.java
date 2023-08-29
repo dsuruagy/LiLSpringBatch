@@ -1,23 +1,25 @@
 package com.linkedin.batch;
 
-import com.linkedin.batch.reader.SimpleItemReader;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-
-import java.util.List;
+import org.springframework.core.io.FileSystemResource;
 
 @EnableBatchProcessing
 @SpringBootApplication
 public class ChunkBatchApplication {
+    public static String[] tokens = new String[] {"order_id", "first_name", "last_name", "email", "cost", "item_id", "item_name", "ship_date"};
+
     @Autowired
     public JobBuilderFactory jobBuilderFactory;
 
@@ -32,14 +34,27 @@ public class ChunkBatchApplication {
     }
 
     @Bean
-    public ItemReader<String> itemReader() {
-        return new SimpleItemReader();
+    public ItemReader<Order> itemReader() {
+        FlatFileItemReader<Order> itemReader = new FlatFileItemReader<Order>();
+        itemReader.setLinesToSkip(1);
+        itemReader.setResource(new FileSystemResource("C://Users//CYFS//dev//projetos//linkedin-batch//shipped_orders.csv"));
+
+        DefaultLineMapper<Order> lineMapper = new DefaultLineMapper<Order>();
+        DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
+        tokenizer.setNames(tokens);
+
+        lineMapper.setLineTokenizer(tokenizer);
+
+        lineMapper.setFieldSetMapper(new OrderFieldSetMapper());
+
+        itemReader.setLineMapper(lineMapper);
+        return itemReader;
     }
 
     @Bean
     public Step chunkBasedStep() {
         return this.stepBuilderFactory.get("chunkBasedStep")
-                .<String, String> chunk(3)
+                .<Order, Order> chunk(3)
                 .reader(itemReader())
                 .writer(list -> {
                             System.out.printf("Received list of size: %s\n", list.size());
